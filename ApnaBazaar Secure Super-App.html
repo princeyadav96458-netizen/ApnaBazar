@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ApnaBazaar - Super Store</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f1f5f9;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: contain;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @keyframes scanLaser {
+      0% { top: 8%; opacity: 0.9; }
+      50% { top: 88%; opacity: 1; }
+      100% { top: 8%; opacity: 0.9; }
+    }
+    .laser-line {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #3b82f6, #60a5fa, #3b82f6, transparent);
+      box-shadow: 0 0 18px 4px rgba(59, 130, 246, 0.85);
+      animation: scanLaser 1.7s ease-in-out infinite;
+    }
+    .reels-container {
+      scroll-snap-type: y mandatory;
+      height: calc(100vh - 64px);
+    }
+    .reel-item {
+      scroll-snap-align: start;
+      height: calc(100vh - 64px);
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 select-none">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // ==================== CONFIG & CONSTANTS ====================
+    const SHEETDB_URL = 'https://sheetdb.io/api/v1/bg6zs3rmlijte';
+    const DEFAULT_ADMIN_PIN = '542275';
+
+    const CATEGORIES = [
+      { id: 'All', label: 'All Items', icon: '🏪' },
+      { id: 'Food & Groceries', label: 'Food & Kitchen', icon: '🌾' },
+      { id: 'Fresh Vegetables', label: 'Hari Sabji', icon: '🥦' },
+      { id: 'Fresh Fruits', label: 'Fresh Fruits', icon: '🍎' },
+      { id: "Men's Clothing", label: "Men's Wear", icon: '👔' },
+      { id: "Women's Clothing", label: "Women's Wear", icon: '👗' },
+      { id: 'Footwear & Shoes', label: 'Shoes & Footwear', icon: '👟' },
+      { id: 'Books & School Supplies', label: 'Books & School', icon: '📚' }
+    ];
+
+    const SAMPLE_PRODUCTS = [
+      {
+        id: 'PRD-101',
+        name: 'Sharbati Chakki Atta (5kg) & Kitchen Spices Combo',
+        category: 'Food & Groceries',
+        price: 255,
+        image_url: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80',
+        description: 'Pure whole wheat chakki atta with daily kitchen haldi, mirchi & dhaniya pack.',
+        short_video_url: 'https://assets.mixkit.co/videos/preview/mixkit-pouring-flour-into-a-bowl-42921-large.mp4',
+        stock: 40,
+        isSample: true
+      },
+      {
+        id: 'PRD-102',
+        name: 'Fresh Farm Hari Sabji Basket (Tamatar, Aloo, Palak, Bhindi)',
+        category: 'Fresh Vegetables',
+        price: 110,
+        image_url: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80',
+        description: 'Morning harvested farm fresh green vegetables family basket (3kg).',
+        short_video_url: 'https://assets.mixkit.co/videos/preview/mixkit-fresh-vegetables-on-a-market-stall-42918-large.mp4',
+        stock: 30,
+        isSample: true
+      },
+      {
+        id: 'PRD-103',
+        name: 'Fresh Kashmiri Red Apples (1kg Pack)',
+        category: 'Fresh Fruits',
+        price: 145,
+        image_url: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?auto=format&fit=crop&w=600&q=80',
+        description: 'Crisp, juicy and sweet handpicked Kashmiri apples.',
+        short_video_url: 'https://assets.mixkit.co/videos/preview/mixkit-red-apples-falling-into-water-42915-large.mp4',
+        stock: 35,
+        isSample: true
+      },
+      {
+        id: 'PRD-104',
+        name: "Men's Premium Cotton Casual Shirt",
+        category: "Men's Clothing",
+        price: 599,
+        image_url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=600&q=80',
+        description: 'Breathable soft cotton shirt for daily, office and festive wear.',
+        short_video_url: 'https://assets.mixkit.co/videos/preview/mixkit-young-man-looking-at-clothes-in-a-store-42908-large.mp4',
+        stock: 22,
+        isSample: true
+      },
+      {
+        id: 'PRD-105',
+        name: "Women's Designer Printed Kurti & Dupatta Set",
+        category: "Women's Clothing",
+        price: 649,
+        image_url: 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?auto=format&fit=crop&w=600&q=80',
+        description: 'Elegant ethnic rayon kurti set with matching dupatta.',
+        short_video_url: 'https://assets.mixkit.co/videos/preview/mixkit-woman-in-traditional-dress-smiling-42905-large.mp4',
+        stock: 25,
+        isSample: true
+      },
+      {
+        id: 'PRD-106',
+        name: 'Ultra-Light Running & Walking Sports Shoes',
+        category: 'Footwear & Shoes',
+        price: 799,
+        image_url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80',
+        description: 'Cushioned EVA sole sneakers for men and women.',
+        short_video_url: 'https://assets.mixkit.co/videos/preview/mixkit-person-tying-running-shoes-42901-large.mp4',
+        stock: 18,
+        isSample: true
+      },
+      {
+        id: 'PRD-107',
+        name: 'All Classes NCERT Books (Class 1–12) + Spiral Notebooks',
+        category: 'Books & School Supplies',
+        price: 450,
+        image_url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
+        description: 'Complete class textbooks, ruled registers, geometry box & school bag combo.',
+        short_video_url: 'https://assets.mixkit.co/videos/preview/mixkit-student-writing-in-a-notebook-42898-large.mp4',
+        stock: 50,
+        isSample: true
+      }
+    ];
+
+    // ==================== INLINE SVG ICONS ====================
+    const Icon = ({ name, className = 'w-5 h-5' }) => {
+      const icons = {
+        bag: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />,
+        search: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />,
+        camera: (
+          <>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </>
+        ),
+        scan: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m0 8v2a2 2 0 01-2 2h-2M7 12h10" />,
+        home: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />,
+        video: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />,
+        cart: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />,
+        shield: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />,
+        close: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />,
+        refresh: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />,
+        trash: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />,
+        edit: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />,
+        copy: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />,
+        check: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />,
+        lock: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      };
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          {icons[name]}
+        </svg>
+      );
+    };
+
+    // ==================== MAIN APP COMPONENT ====================
+    function App() {
+      const [activeTab, setActiveTab] = useState('home');
+      const [selectedCategory, setSelectedCategory] = useState('All');
+      const [searchQuery, setSearchQuery] = useState('');
+      const [lensMatchedTag, setLensMatchedTag] = useState('');
+
+      // Data States
+      const [products, setProducts] = useState(SAMPLE_PRODUCTS);
+      const [productSheetTab, setProductSheetTab] = useState('Product');
+      const [orders, setOrders] = useState([]);
+      const [settings, setSettings] = useState(() => {
+        try {
+          return JSON.parse(localStorage.getItem('apnabazaar_settings')) || {
+            upi_id: 'apnabazaar@upi',
+            upi_name: 'ApnaBazaar Store',
+            qr_image_url: '',
+            support_phone: '9876543210'
+          };
+        } catch {
+          return { upi_id: 'apnabazaar@upi', upi_name: 'ApnaBazaar Store', qr_image_url: '', support_phone: '9876543210' };
+        }
+      });
+
+      const [cart, setCart] = useState(() => {
+        try {
+          return JSON.parse(localStorage.getItem('apnabazaar_cart')) || [];
+        } catch {
+          return [];
+        }
+      });
+
+      // Sync & Modals
+      const [isSyncing, setIsSyncing] = useState(false);
+      const [toast, setToast] = useState(null);
+      const [selectedProduct, setSelectedProduct] = useState(null);
+      const [modalMediaMode, setModalMediaMode] = useState('photo');
+      const [lensOpen, setLensOpen] = useState(false);
+      const [lensPreview, setLensPreview] = useState('https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80');
+      const [isScanning, setIsScanning] = useState(false);
+      const [orderSuccessReceipt, setOrderSuccessReceipt] = useState(null);
+
+      // Admin Security & State
+      const [adminPin, setAdminPin] = useState(() => localStorage.getItem('apnabazaar_admin_pin') || DEFAULT_ADMIN_PIN);
+      const [pinInput, setPinInput] = useState('');
+      const [isAdminAuth, setIsAdminAuth] = useState(false);
+      const [adminSubTab, setAdminSubTab] = useState('products');
+
+      // Admin Form States
+      const [editingProdId, setEditingProdId] = useState(null);
+      const [prodForm, setProdForm] = useState({
+        name: '',
+        category: 'Food & Groceries',
+        price: '',
+        image_url: '',
+        description: '',
+        short_video_url: '',
+        stock: '25'
+      });
+      const [settingsForm, setSettingsForm] = useState(settings);
+      const [newPinInput, setNewPinInput] = useState('');
+      const [confirmPinInput, setConfirmPinInput] = useState('');
+
+      // Checkout Form States
+      const [checkoutForm, setCheckoutForm] = useState({
+        customer_name: '',
+        phone: '',
+        address: '',
+        utr_number: ''
+      });
+      const [submittingOrder, setSubmittingOrder] = useState(false);
+      const [savingProduct, setSavingProduct] = useState(false);
+      const [savingSettings, setSavingSettings] = useState(false);
+
+      const showToast = (msg, isError = false) => {
+        setToast({ msg, isError });
+        setTimeout(() => setToast(null), 2800);
+      };
+
+      // ==================== SHEETDB SYNC ====================
+      const fetchProducts = async (notify = false) => {
+        try {
+          let res = await fetch(`${SHEETDB_URL}?sheet=Product`);
+          let usedTab = 'Product';
+          if (!res.ok) {
+            res = await fetch(`${SHEETDB_URL}?sheet=Products`);
+            if (res.ok) usedTab = 'Products';
+          }
+          if (res.ok) {
+            setProductSheetTab(usedTab);
+            const rows = await res.json();
+            const valid = Array.isArray(rows) ? rows.filter(r => r && r.name && String(r.name).trim() !== '') : [];
+            if (valid.length > 0) {
+              const mapped = valid.map((r, idx) => ({
+                id: String(r.id || `SHEET-${idx + 1}`),
+                name: String(r.name || ''),
+                category: String(r.category || 'Food & Groceries'),
+                price: Number(r.price) || 0,
+                image_url: String(r.image_url || 'https://placehold.co/400x400/e2e8f0/475569?text=Product'),
+                description: String(r.description || ''),
+                short_video_url: String(r.short_video_url || ''),
+                stock: Number(r.stock) || 10,
+                isSample: false
+              }));
+              setProducts([...mapped, ...SAMPLE_PRODUCTS]);
+            } else {
+              setProducts([...SAMPLE_PRODUCTS]);
+            }
+            if (notify) showToast('Products synced from Google Sheet!');
+          }
+        } catch (err) {
+          if (notify) showToast('Could not fetch products from Sheet', true);
+        }
+      };
+
+      const fetchSettings = async () => {
+        try {
+          const res = await fetch(`${SHEETDB_URL}?sheet=Settings`);
+          if (res.ok) {
+            const rows = await res.json();
+            if (Array.isArray(rows) && rows.length > 0) {
+              const latest = rows[rows.length - 1];
+              if (latest.upi_id || latest.upi_name) {
+                const updated = {
+                  upi_id: String(latest.upi_id || settings.upi_id),
+                  upi_name: String(latest.upi_name || settings.upi_name),
+                  qr_image_url: String(latest.qr_image_url || ''),
+                  support_phone: String(latest.support_phone || settings.support_phone)
+                };
+                setSettings(updated);
+                setSettingsForm(updated);
+                localStorage.setItem('apnabazaar_settings', JSON.stringify(updated));
+              }
+            }
+          }
+        } catch {}
+      };
+
+      const fetchOrders = async (notify = false) => {
+        try {
+          const res = await fetch(SHEETDB_URL);
+          if (res.ok) {
+            const rows = await res.json();
+            if (Array.isArray(rows)) {
+              const validOrders = rows
+                .filter(r => r && (r.order_id || r.customer_name || r.utr_number))
+                .reverse();
+              setOrders(validOrders);
+              if (notify) showToast('Orders refreshed!');
+            }
+          }
+        } catch {
+          if (notify) showToast('Failed to load orders', true);
+        }
+      };
+
+      const syncAll = async (notify = false) => {
+        setIsSyncing(true);
+        await Promise.all([fetchProducts(false), fetchSettings(), fetchOrders(false)]);
+        setIsSyncing(false);
+        if (notify) showToast('Google Sheet synced successfully!');
+      };
+
+      useEffect(() => {
+        syncAll(false);
+      }, []);
+
+      useEffect(() => {
+        localStorage.setItem('apnabazaar_cart', JSON.stringify(cart));
+      }, [cart]);
+
+      // ==================== CART HELPERS ====================
+      const addToCart = (prodId) => {
+        setCart(prev => {
+          const found = prev.find(i => i.id === prodId);
+          if (found) return prev.map(i => i.id === prodId ? { ...i, qty: i.qty + 1 } : i);
+          return [...prev, { id: prodId, qty: 1 }];
+        });
+        showToast('Added to cart!');
+      };
+
+      const updateCartQty = (prodId, delta) => {
+        setCart(prev =>
+          prev
+            .map(i => i.id === prodId ? { ...i, qty: i.qty + delta } : i)
+            .filter(i => i.qty > 0)
+        );
+      };
+
+      const totalCartCount = cart.reduce((s, i) => s + i.qty, 0);
+      const cartSubtotal = cart.reduce((sum, item) => {
+        const p = products.find(pr => pr.id === item.id);
+        return sum + (p ? p.price * item.qty : 0);
+      }, 0);
+
+      // ==================== VISUAL LENS SEARCH ====================
+      const handleLensUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const fname = file.name.toLowerCase();
+          let tag = 'fresh';
+          if (fname.includes('shoe') || fname.includes('sneaker')) tag = 'shoes';
+          else if (fname.includes('book') || fname.includes('note') || fname.includes('ncert')) tag = 'books';
+          else if (fname.includes('shirt') || fname.includes('kurti') || fname.includes('cloth')) tag = 'clothing';
+          else if (fname.includes('veg') || fname.includes('sabji')) tag = 'vegetables';
+          else if (fname.includes('fruit') || fname.includes('apple')) tag = 'fruits';
+          else {
+            const tags = ['shoes', 'vegetables', 'books', 'clothing', 'fruits', 'atta'];
+            tag = tags[Math.floor(Math.random() * tags.length)];
+          }
+          triggerVisualScan(tag, ev.target.result);
+        };
+        reader.readAsDataURL(file);
+      };
+
+      const triggerVisualScan = (keyword, imgUrl) => {
+        setLensPreview(imgUrl);
+        setIsScanning(true);
+        setTimeout(() => {
+          setIsScanning(false);
+          setLensOpen(false);
+          setActiveTab('home');
+          setSelectedCategory('All');
+          setSearchQuery(keyword);
+          setLensMatchedTag(keyword.toUpperCase());
+          showToast(`Visual Scan Match: ${keyword}`);
+        }, 1350);
+      };
+
+      // ==================== ORDER SUBMISSION ====================
+      const handlePlaceOrder = async (e) => {
+        e.preventDefault();
+        if (cart.length === 0) return;
+        setSubmittingOrder(true);
+
+        const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+        const itemSummary = cart
+          .map(c => {
+            const p = products.find(pr => pr.id === c.id);
+            return p ? `${p.name} (x${c.qty})` : '';
+          })
+          .filter(Boolean)
+          .join(', ');
+
+        const payload = {
+          order_id: orderId,
+          customer_name: checkoutForm.customer_name.trim(),
+          phone: checkoutForm.phone.trim(),
+          address: checkoutForm.address.trim(),
+          items: itemSummary,
+          total_amount: String(cartSubtotal),
+          payment_method: 'UPI',
+          utr_number: checkoutForm.utr_number.trim(),
+          status: 'Pending',
+          timestamp: new Date().toLocaleString('en-IN')
+        };
+
+        try {
+          const res = await fetch(SHEETDB_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: [payload] })
+          });
+          if (!res.ok) throw new Error('Order POST failed');
+
+          setOrders(prev => [payload, ...prev]);
+          setCart([]);
+          setCheckoutForm({ customer_name: '', phone: '', address: '', utr_number: '' });
+          setOrderSuccessReceipt(payload);
+        } catch {
+          showToast('Order bhejne mein error aaya, kripya dubara try karein.', true);
+        } finally {
+          setSubmittingOrder(false);
+        }
+      };
+
+      // ==================== ADMIN HANDLERS ====================
+      const handleAdminLogin = (e) => {
+        e.preventDefault();
+        if (pinInput.trim() === adminPin) {
+          setIsAdminAuth(true);
+          setPinInput('');
+          fetchOrders(false);
+          showToast('Admin Panel Unlocked');
+        } else {
+          setPinInput('');
+          showToast('Incorrect Admin PIN!', true);
+        }
+      };
+
+      const handleChangeAdminPin = (e) => {
+        e.preventDefault();
+        const cleaned = newPinInput.trim();
+        if (!/^\d{4,6}$/.test(cleaned)) {
+          showToast('PIN must be 4 to 6 digits only', true);
+          return;
+        }
+        if (cleaned !== confirmPinInput.trim()) {
+          showToast('New PIN and Confirm PIN do not match', true);
+          return;
+        }
+        localStorage.setItem('apnabazaar_admin_pin', cleaned);
+        setAdminPin(cleaned);
+        setNewPinInput('');
+        setConfirmPinInput('');
+        showToast('Admin PIN successfully updated!');
+      };
+
+      const handleSaveProduct = async (e) => {
+        e.preventDefault();
+        setSavingProduct(true);
+
+        const productObj = {
+          id: editingProdId || 'PRD-' + Date.now().toString().slice(-6),
+          name: prodForm.name.trim(),
+          category: prodForm.category,
+          price: String(prodForm.price),
+          image_url: prodForm.image_url.trim(),
+          description: prodForm.description.trim() || 'Quality assured product',
+          short_video_url: prodForm.short_video_url.trim(),
+          stock: String(prodForm.stock || 20)
+        };
+
+        try {
+          let res;
+          if (editingProdId) {
+            res = await fetch(`${SHEETDB_URL}/id/${encodeURIComponent(editingProdId)}?sheet=${encodeURIComponent(productSheetTab)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ data: productObj })
+            });
+          } else {
+            res = await fetch(`${SHEETDB_URL}?sheet=${encodeURIComponent(productSheetTab)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ data: [productObj] })
+            });
+            if (!res.ok) {
+              const fallback = productSheetTab === 'Product' ? 'Products' : 'Product';
+              res = await fetch(`${SHEETDB_URL}?sheet=${fallback}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: [productObj] })
+              });
+              if (res.ok) setProductSheetTab(fallback);
+            }
+          }
+
+          if (!res.ok) throw new Error('Product save failed');
+
+          const numericProd = {
+            ...productObj,
+            price: Number(productObj.price),
+            stock: Number(productObj.stock),
+            isSample: false
+          };
+
+          if (editingProdId) {
+            setProducts(prev => prev.map(p => p.id === editingProdId ? numericProd : p));
+            showToast('Product updated in Google Sheet!');
+          } else {
+            setProducts(prev => [numericProd, ...prev]);
+            showToast('New Product & Video saved to Google Sheet!');
+          }
+
+          setEditingProdId(null);
+          setProdForm({
+            name: '',
+            category: 'Food & Groceries',
+            price: '',
+            image_url: '',
+            description: '',
+            short_video_url: '',
+            stock: '25'
+          });
+        } catch {
+          showToast('Error saving product. Check Google Sheet tab name.', true);
+        } finally {
+          setSavingProduct(false);
+        }
+      };
+
+      const startEditProduct = (p) => {
+        if (p.isSample) {
+          showToast('Demo item cannot be edited in Sheet. Add as new product!', true);
+          return;
+        }
+        setEditingProdId(p.id);
+        setProdForm({
+          name: p.name,
+          category: p.category,
+          price: String(p.price),
+          image_url: p.image_url,
+          description: p.description || '',
+          short_video_url: p.short_video_url || '',
+          stock: String(p.stock || 10)
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+
+      const handleDeleteProduct = async (p) => {
+        if (p.isSample) {
+          setProducts(prev => prev.filter(item => item.id !== p.id));
+          showToast('Demo item hidden');
+          return;
+        }
+        try {
+          await fetch(`${SHEETDB_URL}/id/${encodeURIComponent(p.id)}?sheet=${encodeURIComponent(productSheetTab)}`, {
+            method: 'DELETE'
+          });
+          setProducts(prev => prev.filter(item => item.id !== p.id));
+          showToast('Product deleted from Google Sheet');
+        } catch {
+          showToast('Failed to delete product', true);
+        }
+      };
+
+      const handleSaveSettings = async (e) => {
+        e.preventDefault();
+        setSavingSettings(true);
+        try {
+          const res = await fetch(`${SHEETDB_URL}?sheet=Settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: [settingsForm] })
+          });
+          if (!res.ok) throw new Error('Settings save failed');
+          setSettings(settingsForm);
+          localStorage.setItem('apnabazaar_settings', JSON.stringify(settingsForm));
+          showToast('UPI & Store Settings saved to Google Sheet!');
+        } catch {
+          showToast('Failed to save settings to Sheet', true);
+        } finally {
+          setSavingSettings(false);
+        }
+      };
+
+      const handleUpdateOrderStatus = async (orderId, newStatus) => {
+        setOrders(prev => prev.map(o => o.order_id === orderId ? { ...o, status: newStatus } : o));
+        try {
+          await fetch(`${SHEETDB_URL}/order_id/${encodeURIComponent(orderId)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: { status: newStatus } })
+          });
+          showToast(`Order marked as "${newStatus}"`);
+        } catch {
+          showToast('Failed to update order status', true);
+        }
+      };
+
+      const copyUpi = () => {
+        const el = document.createElement('input');
+        el.value = settings.upi_id;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        showToast(`UPI ID Copied: ${settings.upi_id}`);
+      };
+
+      // ==================== FILTERED PRODUCTS ====================
+      const filteredProducts = products.filter(p => {
+        const matchCat = selectedCategory === 'All' || p.category.toLowerCase() === selectedCategory.toLowerCase();
+        const q = searchQuery.trim().toLowerCase();
+        const matchSearch =
+          !q ||
+          p.name.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q) ||
+          (p.description && p.description.toLowerCase().includes(q));
+        return matchCat && matchSearch;
+      });
+
+      const qrImageSrc =
+        settings.qr_image_url && settings.qr_image_url.trim() !== ''
+          ? settings.qr_image_url
+          : `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`upi://pay?pa=${settings.upi_id}&pn=${settings.upi_name}&cu=INR`)}`;
+
+      const reelProducts = products.filter(p => p.short_video_url && p.short_video_url.trim() !== '');
+
+      return (
+        <div className="min-h-screen pb-20">
+          {/* Toast */}
+          {toast && (
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-full shadow-2xl text-xs font-semibold max-w-[92vw]">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${toast.isError ? 'bg-rose-400' : 'bg-emerald-400'}`} />
+              <span>{toast.msg}</span>
+            </div>
+          )}
+
+          {/* ==================== TOP HEADER (HIDDEN IN REELS) ==================== */}
+          {activeTab !== 'reels' && (
+            <header className="sticky top-0 z-40 bg-gradient-to-r from-indigo-700 via-blue-600 to-blue-700 text-white shadow-md">
+              <div className="max-w-lg mx-auto px-3 pt-3 pb-2.5">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center shadow">
+                      <Icon name="bag" className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h1 className="font-extrabold text-base leading-tight">{settings.upi_name || 'ApnaBazaar'}</h1>
+                      <p className="text-[11px] text-blue-100 flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full inline-block ${isSyncing ? 'bg-amber-300 animate-ping' : 'bg-emerald-400'}`} />
+                        <span>{isSyncing ? 'Syncing Sheet...' : 'Live Store'}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLensOpen(true)}
+                    className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 active:scale-95 transition px-3 py-1.5 rounded-full text-xs font-semibold border border-white/25"
+                  >
+                    <Icon name="scan" className="w-4 h-4 text-amber-300" />
+                    <span>Visual Scan</span>
+                  </button>
+                </div>
+
+                {/* Search + Google Lens Camera Button */}
+                <div className="relative flex items-center bg-white rounded-xl shadow-inner overflow-hidden">
+                  <span className="pl-3 text-slate-400">
+                    <Icon name="search" className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      if (!e.target.value) setLensMatchedTag('');
+                    }}
+                    placeholder="Search sabji, fruits, shoes, books, kapde..."
+                    className="w-full py-2.5 px-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setLensMatchedTag('');
+                      }}
+                      className="px-2 text-slate-400 hover:text-slate-600"
+                    >
+                      <Icon name="close" className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setLensOpen(true)}
+                    title="Search with Camera"
+                    className="px-3.5 py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border-l border-slate-200 flex items-center gap-1 font-semibold text-xs active:bg-blue-200 transition"
+                  >
+                    <Icon name="camera" className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </header>
+          )}
+
+          {/* ==================== TAB 1: HOME STOREFRONT ==================== */}
+          {activeTab === 'home' && (
+            <main className="max-w-lg mx-auto">
+              {/* Category Strip */}
+              <div className="bg-white border-b border-slate-200 sticky top-[104px] z-30 shadow-sm">
+                <div className="flex overflow-x-auto no-scrollbar gap-2 px-3 py-2.5">
+                  {CATEGORIES.map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(cat.id);
+                        setLensMatchedTag('');
+                      }}
+                      className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition ${
+                        selectedCategory === cat.id
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span>{cat.icon}</span>
+                      <span>{cat.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lens Match Banner */}
+              {lensMatchedTag && (
+                <div className="mx-3 mt-3 bg-blue-50 border border-blue-200 rounded-xl p-2.5 flex items-center justify-between text-xs text-blue-800">
+                  <span>Visual Scan Match: <strong>{lensMatchedTag}</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setLensMatchedTag('');
+                    }}
+                    className="font-bold text-blue-600 underline"
+                  >
+                    Reset
+                  </button>
+                </div>
+              )}
+
+              {/* Promo Banner */}
+              <div className="px-3 pt-3">
+                <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-2xl p-3.5 text-white shadow-md flex items-center justify-between">
+                  <div className="max-w-[74%]">
+                    <span className="bg-white/25 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">Complete Family Store</span>
+                    <h2 className="font-extrabold text-base mt-1 leading-snug">Kitchen, Hari Sabji, Fruits, Fashion, Shoes & School Books!</h2>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('reels')}
+                      className="mt-2 bg-white text-orange-600 font-bold text-xs px-3 py-1.5 rounded-lg shadow active:scale-95 transition inline-flex items-center gap-1.5"
+                    >
+                      ▶ Watch Product Videos
+                    </button>
+                  </div>
+                  <div className="text-5xl">🛍️</div>
+                </div>
+              </div>
+
+              {/* Grid Header */}
+              <div className="px-3 pt-4 pb-2 flex items-center justify-between">
+                <h3 className="font-bold text-slate-800 text-sm">
+                  {selectedCategory === 'All' ? 'All Products' : selectedCategory}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">{filteredProducts.length} items</span>
+                  <button
+                    type="button"
+                    onClick={() => syncAll(true)}
+                    className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg flex items-center gap-1"
+                  >
+                    <Icon name="refresh" className="w-3 h-3" /> Sync
+                  </button>
+                </div>
+              </div>
+
+              {/* Product Cards */}
+              {filteredProducts.length === 0 ? (
+                <div className="mx-3 bg-white rounded-2xl p-8 text-center shadow-sm">
+                  <div className="text-4xl mb-2">🔍</div>
+                  <h4 className="font-bold text-slate-800 text-sm">Koi product nahi mila</h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedCategory('All');
+                      setLensMatchedTag('');
+                    }}
+                    className="mt-3 bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-xl"
+                  >
+                    Show All Products
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2.5 px-3 pb-6">
+                  {filteredProducts.map(p => (
+                    <div key={p.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 flex flex-col justify-between">
+                      <div
+                        onClick={() => {
+                          setSelectedProduct(p);
+                          setModalMediaMode('photo');
+                        }}
+                        className="relative h-36 bg-slate-100 cursor-pointer overflow-hidden"
+                      >
+                        <img
+                          src={p.image_url}
+                          alt={p.name}
+                          onError={(e) => { e.target.src = 'https://placehold.co/400x400/e2e8f0/475569?text=Product'; }}
+                          className="w-full h-full object-cover"
+                        />
+                        {!p.isSample && (
+                          <span className="absolute top-2 left-2 bg-emerald-600 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-md shadow">
+                            LIVE
+                          </span>
+                        )}
+                        {p.short_video_url && (
+                          <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            ▶ Video
+                          </span>
+                        )}
+                      </div>
+                      <div className="p-2.5 flex-1 flex flex-col justify-between">
+                        <div
+                          onClick={() => {
+                            setSelectedProduct(p);
+                            setModalMediaMode('photo');
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <span className="text-[10px] font-semibold text-blue-600">{p.category}</span>
+                          <h4 className="font-bold text-slate-800 text-xs line-clamp-2 mt-0.5 leading-snug">{p.name}</h4>
+                        </div>
+                        <div className="mt-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-extrabold text-sm text-slate-900">₹{p.price}</span>
+                            <span className="text-[10px] text-slate-400">Stock: {p.stock}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => addToCart(p.id)}
+                            className="mt-2 w-full bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 font-bold text-xs py-2 rounded-xl transition active:scale-95"
+                          >
+                            + Add to Cart
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </main>
+          )}
+
+          {/* ==================== TAB 2: SHORT PRODUCT VIDEOS ==================== */}
+          {activeTab === 'reels' && (
+            <section className="max-w-lg mx-auto bg-black text-white">
+              <div className="reels-container overflow-y-scroll no-scrollbar relative">
+                {(reelProducts.length > 0 ? reelProducts : products.slice(0, 5)).map(p => (
+                  <div key={p.id} className="reel-item relative w-full bg-slate-950 flex items-center justify-center overflow-hidden">
+                    {p.short_video_url ? (
+                      <video
+                        src={p.short_video_url}
+                        poster={p.image_url}
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        onClick={(e) => {
+                          e.target.muted = !e.target.muted;
+                          showToast(e.target.muted ? 'Muted' : 'Sound On');
+                        }}
+                      />
+                    ) : (
+                      <img src={p.image_url} alt={p.name} className="w-full h-full object-cover opacity-85" />
+                    )}
+
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                      <span className="bg-black/60 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-full">
+                        🔥 Watch & Shop
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('home')}
+                        className="bg-black/60 text-white text-xs font-bold px-3 py-1 rounded-full"
+                      >
+                        ✕ Back
+                      </button>
+                    </div>
+
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/65 to-transparent p-4 pt-12">
+                      <span className="bg-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{p.category}</span>
+                      <h3 className="font-extrabold text-base text-white mt-1 leading-snug">{p.name}</h3>
+                      <div className="flex items-center justify-between mt-2.5">
+                        <span className="font-extrabold text-xl text-amber-400">₹{p.price}</span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => addToCart(p.id)}
+                            className="bg-white text-slate-900 font-extrabold text-xs px-3.5 py-2.5 rounded-xl shadow active:scale-95"
+                          >
+                            + Cart
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              addToCart(p.id);
+                              setActiveTab('cart');
+                            }}
+                            className="bg-emerald-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow active:scale-95"
+                          >
+                            Buy Now
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ==================== TAB 3: CART & UPI CHECKOUT ==================== */}
+          {activeTab === 'cart' && (
+            <section className="max-w-lg mx-auto px-3 pt-3 pb-8">
+              <h2 className="font-extrabold text-lg text-slate-800 mb-3 flex items-center gap-2">
+                <Icon name="cart" className="w-5 h-5 text-blue-600" /> My Shopping Cart
+              </h2>
+
+              {cart.length === 0 ? (
+                <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-slate-100">
+                  <div className="text-5xl mb-3">🛒</div>
+                  <h3 className="font-bold text-slate-800 text-base">Aapka Cart Khali Hai</h3>
+                  <p className="text-xs text-slate-500 mt-1 mb-4">Hari sabji, fruits, kapde, shoes ya school books add karein!</p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('home')}
+                    className="bg-blue-600 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow"
+                  >
+                    Shopping Shuru Karein
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-2.5">
+                    {cart.map(cItem => {
+                      const p = products.find(pr => pr.id === cItem.id);
+                      if (!p) return null;
+                      return (
+                        <div key={p.id} className="bg-white rounded-2xl p-3 shadow-sm border border-slate-100 flex items-center gap-3">
+                          <img src={p.image_url} alt={p.name} className="w-16 h-16 rounded-xl object-cover shrink-0 bg-slate-100" />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-xs text-slate-800 truncate">{p.name}</h4>
+                            <p className="text-[11px] text-slate-500">{p.category}</p>
+                            <p className="font-extrabold text-sm text-slate-900 mt-1">₹{p.price * cItem.qty}</p>
+                          </div>
+                          <div className="flex items-center gap-2 bg-slate-100 rounded-xl p-1">
+                            <button type="button" onClick={() => updateCartQty(p.id, -1)} className="w-7 h-7 rounded-lg bg-white font-bold text-slate-700 shadow-sm">-</button>
+                            <span className="text-xs font-extrabold px-1">{cItem.qty}</span>
+                            <button type="button" onClick={() => updateCartQty(p.id, 1)} className="w-7 h-7 rounded-lg bg-white font-bold text-blue-600 shadow-sm">+</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Bill Summary */}
+                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-2 text-sm">
+                    <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2">Price Details</h4>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Items Total</span>
+                      <span>₹{cartSubtotal}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-600 font-medium">
+                      <span>Delivery Charge</span>
+                      <span>FREE</span>
+                    </div>
+                    <div className="flex justify-between font-extrabold text-base text-slate-900 border-t border-slate-100 pt-2">
+                      <span>Total Payable</span>
+                      <span>₹{cartSubtotal}</span>
+                    </div>
+                  </div>
+
+                  {/* Checkout Form */}
+                  <form onSubmit={handlePlaceOrder} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3">
+                    <h4 className="font-bold text-slate-800 text-sm">Delivery Address</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        required
+                        value={checkoutForm.customer_name}
+                        onChange={(e) => setCheckoutForm({ ...checkoutForm, customer_name: e.target.value })}
+                        placeholder="Apna Poora Naam"
+                        className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500"
+                      />
+                      <input
+                        type="tel"
+                        required
+                        value={checkoutForm.phone}
+                        onChange={(e) => setCheckoutForm({ ...checkoutForm, phone: e.target.value })}
+                        placeholder="Mobile Number"
+                        className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <textarea
+                      required
+                      rows="2"
+                      value={checkoutForm.address}
+                      onChange={(e) => setCheckoutForm({ ...checkoutForm, address: e.target.value })}
+                      placeholder="Ghar No, Gali, Gaon/Colony, Landmark, Pincode..."
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    />
+
+                    {/* UPI Payment Box */}
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-extrabold uppercase tracking-wide text-blue-800">Pay via UPI</span>
+                        <span className="text-[11px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">Direct Store Pay</span>
+                      </div>
+
+                      <div className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-blue-100">
+                        <img src={qrImageSrc} alt="UPI QR" className="w-24 h-24 rounded-lg border border-slate-200 object-contain bg-white shrink-0" />
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <p className="text-[11px] text-slate-500">Pay to:</p>
+                          <p className="font-bold text-slate-800 text-sm truncate">{settings.upi_name}</p>
+                          <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-lg">
+                            <span className="text-xs font-mono font-bold text-blue-700 truncate">{settings.upi_id}</span>
+                            <button type="button" onClick={copyUpi} className="ml-auto text-blue-600 text-xs font-bold shrink-0 flex items-center gap-0.5">
+                              <Icon name="copy" className="w-3 h-3" /> Copy
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-slate-500">Support: <span className="font-semibold">{settings.support_phone}</span></p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">12-Digit UPI UTR / Transaction ID Daalein *</label>
+                        <input
+                          type="text"
+                          required
+                          minLength={6}
+                          value={checkoutForm.utr_number}
+                          onChange={(e) => setCheckoutForm({ ...checkoutForm, utr_number: e.target.value })}
+                          placeholder="Jaise: 432910482910"
+                          className="w-full bg-white border border-blue-300 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submittingOrder}
+                      className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-extrabold py-3 rounded-xl shadow-lg active:scale-[0.99] transition text-sm"
+                    >
+                      {submittingOrder ? 'Order Bheja Ja Raha Hai...' : `Order Confirm Karein (₹${cartSubtotal})`}
+                    </button>
+                  </form>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ==================== TAB 4: SECURE ADMIN PANEL ==================== */}
+          {activeTab === 'admin' && (
+            <section className="max-w-lg mx-auto px-3 pt-4 pb-10">
+              {!isAdminAuth ? (
+                /* Zero-Hint Secret PIN Login Screen */
+                <form onSubmit={handleAdminLogin} className="bg-white rounded-2xl p-6 shadow-md border border-slate-200 text-center max-w-sm mx-auto mt-6">
+                  <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <Icon name="lock" className="w-7 h-7" />
+                  </div>
+                  <h2 className="font-extrabold text-lg text-slate-800">Administrator Access</h2>
+                  <p className="text-xs text-slate-500 mt-1 mb-4">Enter your secret Admin PIN to continue.</p>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    required
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    placeholder="••••••"
+                    className="w-44 text-center tracking-[0.45em] font-extrabold text-xl border-2 border-slate-300 rounded-xl py-2.5 focus:outline-none focus:border-indigo-600 mb-4"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl shadow text-sm"
+                  >
+                    Unlock Admin Panel
+                  </button>
+                </form>
+              ) : (
+                /* Authenticated Admin Dashboard */
+                <div className="space-y-4">
+                  <div className="bg-slate-900 text-white p-3.5 rounded-2xl shadow flex items-center justify-between">
+                    <div>
+                      <h2 className="font-extrabold text-base flex items-center gap-2">
+                        <Icon name="shield" className="w-4 h-4 text-amber-400" /> Admin Control Center
+                      </h2>
+                      <p className="text-[11px] text-emerald-400 font-mono">SheetDB Connected ({productSheetTab})</p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => syncAll(true)}
+                        className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1"
+                      >
+                        <Icon name="refresh" className="w-3 h-3" /> Sync
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsAdminAuth(false)}
+                        className="bg-white/15 hover:bg-white/25 text-xs font-semibold px-2.5 py-1.5 rounded-lg"
+                      >
+                        Lock
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Admin Sub-Navigation */}
+                  <div className="grid grid-cols-4 gap-1 bg-slate-200 p-1 rounded-xl text-[11px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setAdminSubTab('products')}
+                      className={`py-2 rounded-lg ${adminSubTab === 'products' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
+                    >
+                      + Product
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdminSubTab('orders');
+                        fetchOrders(true);
+                      }}
+                      className={`py-2 rounded-lg ${adminSubTab === 'orders' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
+                    >
+                      Orders ({orders.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdminSubTab('upi')}
+                      className={`py-2 rounded-lg ${adminSubTab === 'upi' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
+                    >
+                      UPI & PIN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdminSubTab('guide')}
+                      className={`py-2 rounded-lg ${adminSubTab === 'guide' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600'}`}
+                    >
+                      Sheet Guide
+                    </button>
+                  </div>
+
+                  {/* ADMIN SUB-TAB 1: PRODUCTS & VIDEOS */}
+                  {adminSubTab === 'products' && (
+                    <div className="space-y-4">
+                      <form onSubmit={handleSaveProduct} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-bold text-slate-800 text-sm">
+                            {editingProdId ? 'Edit Product' : 'Upload Product & Short Video'}
+                          </h3>
+                          {editingProdId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingProdId(null);
+                                setProdForm({ name: '', category: 'Food & Groceries', price: '', image_url: '', description: '', short_video_url: '', stock: '25' });
+                              }}
+                              className="text-xs text-rose-600 font-bold"
+                            >
+                              Cancel Edit
+                            </button>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Product Name *</label>
+                          <input
+                            type="text"
+                            required
+                            value={prodForm.name}
+                            onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })}
+                            placeholder="Jaise: Fresh Shimla Apple 1kg / Class 10 Book"
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">Category *</label>
+                            <select
+                              value={prodForm.category}
+                              onChange={(e) => setProdForm({ ...prodForm, category: e.target.value })}
+                              className="w-full border border-slate-300 rounded-xl px-2.5 py-2 text-sm bg-white"
+                            >
+                              <option value="Food & Groceries">Food & Groceries</option>
+                              <option value="Fresh Vegetables">Fresh Vegetables (Hari Sabji)</option>
+                              <option value="Fresh Fruits">Fresh Fruits</option>
+                              <option value="Men's Clothing">Men's Clothing</option>
+                              <option value="Women's Clothing">Women's Clothing</option>
+                              <option value="Footwear & Shoes">Footwear & Shoes</option>
+                              <option value="Books & School Supplies">Books & School Supplies</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">Price (₹) *</label>
+                            <input
+                              type="number"
+                              required
+                              value={prodForm.price}
+                              onChange={(e) => setProdForm({ ...prodForm, price: e.target.value })}
+                              placeholder="199"
+                              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">Stock Qty *</label>
+                            <input
+                              type="number"
+                              required
+                              value={prodForm.stock}
+                              onChange={(e) => setProdForm({ ...prodForm, stock: e.target.value })}
+                              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+                            <input
+                              type="text"
+                              value={prodForm.description}
+                              onChange={(e) => setProdForm({ ...prodForm, description: e.target.value })}
+                              placeholder="Fresh quality item..."
+                              className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Product Photo URL (ImgBB direct link) *</label>
+                          <input
+                            type="url"
+                            required
+                            value={prodForm.image_url}
+                            onChange={(e) => setProdForm({ ...prodForm, image_url: e.target.value })}
+                            placeholder="https://i.ibb.co/..."
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Short Video URL (.mp4 for Reels)</label>
+                          <input
+                            type="url"
+                            value={prodForm.short_video_url}
+                            onChange={(e) => setProdForm({ ...prodForm, short_video_url: e.target.value })}
+                            placeholder="https://.../product-video.mp4"
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={savingProduct}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl shadow text-sm"
+                        >
+                          {savingProduct ? 'Saving to Sheet...' : editingProdId ? 'Update Product in Sheet' : 'Save Product to Google Sheet'}
+                        </button>
+                      </form>
+
+                      {/* Product Catalog List */}
+                      <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-bold text-slate-800 text-sm">Store Products ({products.length})</h4>
+                          <button type="button" onClick={() => fetchProducts(true)} className="text-xs text-indigo-600 font-bold">
+                            Refresh
+                          </button>
+                        </div>
+                        <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+                          {products.map(p => (
+                            <div key={p.id} className="flex items-center gap-2.5 p-2 rounded-xl border border-slate-100 bg-slate-50">
+                              <img src={p.image_url} alt={p.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-xs text-slate-800 truncate">{p.name}</p>
+                                <p className="text-[11px] text-slate-500">
+                                  {p.category} • ₹{p.price} {p.isSample ? '(Demo)' : '• Sheet'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {!p.isSample && (
+                                  <button type="button" onClick={() => startEditProduct(p)} className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg">
+                                    <Icon name="edit" className="w-4 h-4" />
+                                  </button>
+                                )}
+                                <button type="button" onClick={() => handleDeleteProduct(p)} className="p-2 text-rose-600 hover:bg-rose-100 rounded-lg">
+                                  <Icon name="trash" className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ADMIN SUB-TAB 2: ORDERS MANAGER */}
+                  {adminSubTab === 'orders' && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-slate-200">
+                        <span className="text-xs font-bold text-slate-700">Live Customer Orders</span>
+                        <button type="button" onClick={() => fetchOrders(true)} className="text-xs font-bold text-indigo-600 flex items-center gap-1">
+                          <Icon name="refresh" className="w-3 h-3" /> Refresh
+                        </button>
+                      </div>
+
+                      {orders.length === 0 ? (
+                        <div className="bg-white rounded-2xl p-6 text-center text-xs text-slate-500">
+                          Abhi tak koi order nahi aaya hai.
+                        </div>
+                      ) : (
+                        orders.map((o, idx) => (
+                          <div key={o.order_id || idx} className="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 space-y-2 text-xs">
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                              <span className="font-mono font-extrabold text-indigo-700">{o.order_id}</span>
+                              <span className="text-[11px] text-slate-400">{o.timestamp}</span>
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800">{o.customer_name} ({o.phone})</p>
+                              <p className="text-slate-600 mt-0.5">{o.address}</p>
+                            </div>
+                            <div className="bg-blue-50 p-2 rounded-lg flex justify-between items-center">
+                              <span>UPI UTR: <strong className="font-mono text-blue-800">{o.utr_number}</strong></span>
+                              <span className="font-extrabold text-emerald-700 text-sm">₹{o.total_amount}</span>
+                            </div>
+                            <div className="text-slate-600">{o.items}</div>
+                            <div className="flex items-center justify-between pt-1">
+                              <span className="font-semibold text-slate-600">Status:</span>
+                              <select
+                                value={o.status || 'Pending'}
+                                onChange={(e) => handleUpdateOrderStatus(o.order_id, e.target.value)}
+                                className="border border-slate-300 rounded-lg px-2 py-1 font-bold text-xs bg-slate-50"
+                              >
+                                <option value="Pending">Pending</option>
+                                <option value="Packed">Packed</option>
+                                <option value="Out for Delivery">Out for Delivery</option>
+                                <option value="Delivered">Delivered</option>
+                              </select>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* ADMIN SUB-TAB 3: UPI SETTINGS & CHANGE ADMIN PIN */}
+                  {adminSubTab === 'upi' && (
+                    <div className="space-y-4">
+                      <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+                        <h3 className="font-bold text-slate-800 text-sm">UPI & Store Payment Details</h3>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Aapka UPI ID (`upi_id`) *</label>
+                          <input
+                            type="text"
+                            required
+                            value={settingsForm.upi_id}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, upi_id: e.target.value })}
+                            placeholder="yourname@okaxis"
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Store / Merchant Name (`upi_name`) *</label>
+                          <input
+                            type="text"
+                            required
+                            value={settingsForm.upi_name}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, upi_name: e.target.value })}
+                            placeholder="ApnaBazaar Store"
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">QR Code Image URL (`qr_image_url`) <span className="text-[10px] text-slate-400">(Optional)</span></label>
+                          <input
+                            type="url"
+                            value={settingsForm.qr_image_url}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, qr_image_url: e.target.value })}
+                            placeholder="https://i.ibb.co/your-qr.png"
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Support Phone (`support_phone`) *</label>
+                          <input
+                            type="tel"
+                            required
+                            value={settingsForm.support_phone}
+                            onChange={(e) => setSettingsForm({ ...settingsForm, support_phone: e.target.value })}
+                            placeholder="9876543210"
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={savingSettings}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl shadow text-sm"
+                        >
+                          {savingSettings ? 'Saving...' : 'Save UPI Details to Google Sheet'}
+                        </button>
+                      </form>
+
+                      {/* Change Admin PIN Card */}
+                      <form onSubmit={handleChangeAdminPin} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+                        <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                          <Icon name="lock" className="w-4 h-4 text-indigo-600" /> Change Admin PIN
+                        </h3>
+                        <p className="text-[11px] text-slate-500">Set a new 4 to 6 digit secret PIN for this device.</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="password"
+                            inputMode="numeric"
+                            maxLength={6}
+                            required
+                            value={newPinInput}
+                            onChange={(e) => setNewPinInput(e.target.value)}
+                            placeholder="New PIN (4-6 digits)"
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono"
+                          />
+                          <input
+                            type="password"
+                            inputMode="numeric"
+                            maxLength={6}
+                            required
+                            value={confirmPinInput}
+                            onChange={(e) => setConfirmPinInput(e.target.value)}
+                            placeholder="Confirm New PIN"
+                            className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-sm"
+                        >
+                          Update Admin PIN
+                        </button>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* ADMIN SUB-TAB 4: SHEET SETUP GUIDE */}
+                  {adminSubTab === 'guide' && (
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3 text-xs">
+                      <h3 className="font-bold text-slate-800 text-sm">Google Sheet Exact Column Headers</h3>
+                      <p className="text-slate-500">Ensure Row 1 in your 3 Google Sheet tabs matches these exact names:</p>
+
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                        <p className="font-extrabold text-indigo-700">1. Tab: Orders</p>
+                        <p className="font-mono text-[11px] text-slate-700 break-all">
+                          order_id, customer_name, phone, address, items, total_amount, payment_method, utr_number, status, timestamp
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                        <p className="font-extrabold text-indigo-700">2. Tab: Product</p>
+                        <p className="font-mono text-[11px] text-slate-700 break-all">
+                          id, name, category, price, image_url, description, short_video_url, stock
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                        <p className="font-extrabold text-indigo-700">3. Tab: Settings</p>
+                        <p className="font-mono text-[11px] text-slate-700 break-all">
+                          upi_id, upi_name, qr_image_url, support_phone
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ==================== GOOGLE LENS VISUAL SCAN MODAL ==================== */}
+          {lensOpen && (
+            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl">
+                <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Icon name="scan" className="w-4 h-4 text-blue-400" />
+                    <span className="font-bold text-sm">Visual Product Scan</span>
+                  </div>
+                  <button type="button" onClick={() => setLensOpen(false)} className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
+                    <Icon name="close" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  <div className="relative h-52 bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-blue-500/40">
+                    <img
+                      src={lensPreview}
+                      alt="Scan preview"
+                      className={`w-full h-full object-cover ${isScanning ? 'opacity-95' : 'opacity-50'}`}
+                    />
+                    {isScanning && <div className="laser-line" />}
+                    {!isScanning && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-white text-center p-4">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-600/80 flex items-center justify-center mb-2 shadow-lg">
+                          <Icon name="camera" className="w-6 h-6" />
+                        </div>
+                        <p className="font-bold text-sm">Photo Kheenchein ya Upload Karein</p>
+                        <p className="text-[11px] text-slate-300 mt-0.5">Kisi bhi saman ki photo se turant product khojein</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <label className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow text-sm flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition">
+                    <Icon name="camera" className="w-4 h-4" />
+                    <span>Camera / Gallery Se Photo Chunein</span>
+                    <input type="file" accept="image/*" capture="environment" onChange={handleLensUpload} className="hidden" />
+                  </label>
+
+                  <div>
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Instant Visual Scan Presets:</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => triggerVisualScan('vegetables', 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=400&q=80')}
+                        className="p-2 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl"
+                      >
+                        🥦 Hari Sabji
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => triggerVisualScan('shoes', 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80')}
+                        className="p-2 bg-blue-50 text-blue-800 border border-blue-200 rounded-xl"
+                      >
+                        👟 Sports Shoes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => triggerVisualScan('books', 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80')}
+                        className="p-2 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl"
+                      >
+                        📚 School Books
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => triggerVisualScan('clothing', 'https://images.unsplash.com/photo-1583391733956-6c78276477e2?auto=format&fit=crop&w=400&q=80')}
+                        className="p-2 bg-purple-50 text-purple-800 border border-purple-200 rounded-xl"
+                      >
+                        👗 Kapde (Clothes)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ==================== PRODUCT DETAIL & VIDEO MODAL ==================== */}
+          {selectedProduct && (
+            <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center">
+              <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+                <div className="relative">
+                  <div className="h-72 bg-slate-900 flex items-center justify-center overflow-hidden">
+                    {modalMediaMode === 'video' && selectedProduct.short_video_url ? (
+                      <video src={selectedProduct.short_video_url} className="w-full h-full object-cover" controls autoPlay loop playsinline />
+                    ) : (
+                      <img src={selectedProduct.image_url} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProduct(null)}
+                    className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center"
+                  >
+                    <Icon name="close" className="w-4 h-4" />
+                  </button>
+                  {selectedProduct.short_video_url && (
+                    <div className="absolute bottom-3 left-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setModalMediaMode('photo')}
+                        className={`text-xs font-bold px-3 py-1 rounded-full shadow ${modalMediaMode === 'photo' ? 'bg-white text-slate-900' : 'bg-black/60 text-white'}`}
+                      >
+                        Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setModalMediaMode('video')}
+                        className={`text-xs font-bold px-3 py-1 rounded-full shadow ${modalMediaMode === 'video' ? 'bg-rose-600 text-white' : 'bg-black/60 text-white'}`}
+                      >
+                        ▶ Short Video
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full">{selectedProduct.category}</span>
+                    <span className="text-xs font-semibold text-emerald-600">In Stock ({selectedProduct.stock})</span>
+                  </div>
+                  <h3 className="font-extrabold text-lg text-slate-900 leading-snug">{selectedProduct.name}</h3>
+                  <div className="font-extrabold text-2xl text-slate-900">₹{selectedProduct.price}</div>
+                  <p className="text-xs text-slate-600 leading-relaxed">{selectedProduct.description}</p>
+                  <div className="grid grid-cols-2 gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addToCart(selectedProduct.id);
+                        setSelectedProduct(null);
+                      }}
+                      className="bg-amber-400 hover:bg-amber-500 text-slate-900 font-extrabold py-3 rounded-xl text-sm shadow"
+                    >
+                      + Add to Cart
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addToCart(selectedProduct.id);
+                        setSelectedProduct(null);
+                        setActiveTab('cart');
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-3 rounded-xl text-sm shadow"
+                    >
+                      Buy Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ==================== ORDER SUCCESS MODAL ==================== */}
+          {orderSuccessReceipt && (
+            <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-3 shadow-2xl">
+                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                  <Icon name="check" className="w-8 h-8" />
+                </div>
+                <h3 className="font-extrabold text-xl text-slate-900">Order Confirmed!</h3>
+                <p className="text-xs text-slate-500">Aapka order aur UPI UTR number Google Sheet mein save ho gaya hai.</p>
+                <div className="bg-slate-50 rounded-xl p-3 text-left text-xs space-y-1 border border-slate-200">
+                  <p><strong>Order ID:</strong> <span className="font-mono">{orderSuccessReceipt.order_id}</span></p>
+                  <p><strong>UTR Paid:</strong> <span className="font-mono text-blue-700">{orderSuccessReceipt.utr_number}</span></p>
+                  <p><strong>Total Paid:</strong> <span className="font-bold text-emerald-700">₹{orderSuccessReceipt.total_amount}</span></p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrderSuccessReceipt(null);
+                    setActiveTab('home');
+                  }}
+                  className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl text-sm"
+                >
+                  Continue Shopping
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ==================== BOTTOM NAVIGATION BAR ==================== */}
+          <nav className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-lg">
+            <div className="max-w-lg mx-auto grid grid-cols-4 h-16">
+              <button
+                type="button"
+                onClick={() => setActiveTab('home')}
+                className={`flex flex-col items-center justify-center text-[11px] gap-1 ${activeTab === 'home' ? 'text-blue-600 font-bold' : 'text-slate-500 font-medium'}`}
+              >
+                <Icon name="home" className="w-5 h-5" />
+                <span>Home</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('reels')}
+                className={`flex flex-col items-center justify-center text-[11px] gap-1 ${activeTab === 'reels' ? 'text-blue-600 font-bold' : 'text-slate-500 font-medium'}`}
+              >
+                <Icon name="video" className="w-5 h-5" />
+                <span>Short Videos</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('cart')}
+                className={`flex flex-col items-center justify-center text-[11px] gap-1 ${activeTab === 'cart' ? 'text-blue-600 font-bold' : 'text-slate-500 font-medium'}`}
+              >
+                <div className="relative">
+                  <Icon name="cart" className="w-5 h-5" />
+                  {totalCartCount > 0 && (
+                    <span className="absolute -top-1.5 -right-2.5 bg-rose-600 text-white text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center">
+                      {totalCartCount}
+                    </span>
+                  )}
+                </div>
+                <span>Cart</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('admin')}
+                className={`flex flex-col items-center justify-center text-[11px] gap-1 ${activeTab === 'admin' ? 'text-blue-600 font-bold' : 'text-slate-500 font-medium'}`}
+              >
+                <Icon name="shield" className="w-5 h-5" />
+                <span>Admin</span>
+              </button>
+            </div>
+          </nav>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
